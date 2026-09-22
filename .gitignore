@@ -219,3 +219,6 @@ __marimo__/
 
 #failure
 failures/
+#experiments
+experiments/
+*.csv
