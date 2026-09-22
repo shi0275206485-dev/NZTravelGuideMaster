@@ -1,0 +1,46 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind utilities;
+@tailwind components;
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-water ring-offset-2 ring-offset-paper;
+  }
+}
+
+@layer components {
+  /* The small capitalised annotations on a survey sheet. */
+  .eyebrow {
+    @apply font-mono text-[0.66rem] uppercase tracking-survey text-graphite;
+  }
+
+  .field-label {
+    @apply block eyebrow mb-2;
+  }
+
+  .field {
+    @apply w-full rounded-sm border border-vellum bg-white px-3 py-2.5
+           text-ink placeholder:text-graphite/60
+           focus:border-water transition-colors;
+  }
+
+  /* Panels are white on the warm page rather than a tint of it: the
+     contrast is what separates a card from the sheet it sits on. */
+  .sheet {
+    @apply rounded-sm border border-vellum bg-white shadow-sheet;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,26 @@
+services:
+  overpass:
+    image: wiktorn/overpass-api:0.7.62
+    container_name: overpass-nz
+
+    # entrypoint:
+    #   - /bin/sh
+    #   - -c
+    #   - |
+    #     chmod og+rx /db
+    #     exec /docker-entrypoint.sh
+
+    ports:
+      - "12345:80"
+
+    volumes:
+      - overpass-db:/db
+
+    environment:
+      - OVERPASS_MODE=init
+      - OVERPASS_META=no
+      - OVERPASS_PLANET_URL=https://download.geofabrik.de/australia-oceania/new-zealand-latest.osm.pbf
+      - OVERPASS_PLANET_PREPROCESS=mv /db/planet.osm.bz2 /db/planet.osm.pbf && osmium cat -o /db/planet.osm.bz2 /db/planet.osm.pbf && rm /db/planet.osm.pbf
+
+volumes:
+  overpass-db:

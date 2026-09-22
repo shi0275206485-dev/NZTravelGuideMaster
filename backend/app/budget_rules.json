@@ -1,0 +1,106 @@
+{
+  "_meta": {
+    "currency": "NZD",
+    "gst_inclusive": true,
+    "version": "2026-08-03",
+    "purpose": "Transparent heuristic cost estimates. These are NOT real-time prices. Every figure is a range, hand-calibrated against publicly advertised NZ rates during Phase 1, and is always surfaced to the user labelled as an estimate.",
+    "why_not_an_api": "Commercial pricing APIs are either partner-gated (Booking.com) or prohibit caching and display outside their own maps (Google Places). A published rule table is auditable, reproducible, and free of licensing conflict — the project's assessment target is multi-agent orchestration, not price accuracy.",
+    "tiers": {
+      "1": "Premium tourist market (highest seasonal markup)",
+      "2": "Main metropolitan centres",
+      "3": "Regional tourist centres"
+    },
+    "destination_tiers": {
+      "Auckland": 2,
+      "Wellington": 2,
+      "Rotorua": 3
+    }
+  },
+
+  "accommodation_per_night": {
+    "_note": "Keyed by tier, then accommodation type. Hotels are further split by star rating where OSM tags one; hotel_default applies when stars are absent, which is the common case.",
+    "1": {
+      "hostel": [45, 80],
+      "guest_house": [120, 190],
+      "motel": [160, 240],
+      "hotel_default": [220, 340],
+      "hotel_3": [200, 300],
+      "hotel_4": [320, 480],
+      "hotel_5": [500, 900]
+    },
+    "2": {
+      "hostel": [35, 65],
+      "guest_house": [110, 170],
+      "motel": [130, 200],
+      "hotel_default": [170, 260],
+      "hotel_3": [150, 230],
+      "hotel_4": [240, 380],
+      "hotel_5": [400, 700]
+    },
+    "3": {
+      "hostel": [30, 55],
+      "guest_house": [95, 150],
+      "motel": [110, 175],
+      "hotel_default": [150, 230],
+      "hotel_3": [140, 210],
+      "hotel_4": [210, 330],
+      "hotel_5": [350, 600]
+    }
+  },
+
+  "meals_per_person_per_day": {
+    "_note": "Keyed by tier, then the user's budget_level. Covers three meals; budget assumes bakeries, food courts and self-catering, premium assumes a restaurant dinner.",
+    "1": {
+      "budget": [35, 55],
+      "mid_range": [70, 110],
+      "premium": [130, 220]
+    },
+    "2": {
+      "budget": [30, 50],
+      "mid_range": [60, 100],
+      "premium": [120, 200]
+    },
+    "3": {
+      "budget": [28, 45],
+      "mid_range": [55, 90],
+      "premium": [100, 170]
+    }
+  },
+
+  "attraction_entry": {
+    "_note": "Keyed by the project's AttractionCategory. OSM carries no ticket prices, so these are category averages for NZ. Parks, viewpoints and beaches are genuinely free; the geothermal band is wide because it spans a free roadside hot spring and a full thermal park.",
+    "park": [0, 0],
+    "viewpoint": [0, 0],
+    "beach": [0, 0],
+    "nature": [0, 25],
+    "culture": [0, 30],
+    "museum": [0, 30],
+    "geothermal": [20, 80],
+    "adventure": [50, 180],
+    "family": [30, 70],
+    "other": [0, 40]
+  },
+
+  "transport_per_day": {
+    "_note": "Keyed by tier. Assumes a mix of local driving and short transfers within the destination; the low end reflects walking a compact centre, the high end a rental car with fuel and parking. Inter-city travel is out of scope (each plan covers one destination).",
+    "1": [25, 90],
+    "2": [20, 75],
+    "3": [18, 65]
+  },
+
+  "seasonal_multipliers": {
+    "_note": "Applied to accommodation only. NZ summer is the peak; Queenstown-style ski demand is not modelled since the MVP destinations are not ski towns. Keyed by month number.",
+    "12": 1.25,
+    "1": 1.30,
+    "2": 1.20,
+    "3": 1.05,
+    "4": 1.00,
+    "5": 0.90,
+    "6": 0.85,
+    "7": 0.90,
+    "8": 0.90,
+    "9": 0.95,
+    "10": 1.00,
+    "11": 1.10
+  }
+}

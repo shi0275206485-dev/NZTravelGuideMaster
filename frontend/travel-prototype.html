@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZTravelGuideMaster — UI Prototype (COMPX576)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#17241F;
+  --paper:#F6F7F4;
+  --panel:#FFFFFF;
+  --fern:#2E5E4E;
+  --fern-deep:#1E4237;
+  --lake:#3E7CB1;
+  --lake-soft:#DCEAF4;
+  --kowhai:#E4A61A;
+  --line:#DDE2DC;
+  --muted:#6C7A73;
+  --ok:#2E8B57;
+  --font-display:"Bricolage Grotesque",system-ui,sans-serif;
+  --font-body:"Inter",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-body);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.5}
+
+/* ===== Prototype shell (navigation between screens) ===== */
+.shell-header{background:var(--fern-deep);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.shell-header h1{font-family:var(--font-display);font-size:18px;font-weight:700;letter-spacing:.2px}
+.shell-header .sub{font-size:12px;opacity:.75}
+.screen-tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.screen-tab{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;padding:7px 13px;border-radius:99px;font-size:12.5px;cursor:pointer;font-family:var(--font-body);font-weight:500;transition:background .15s}
+.screen-tab:hover{background:rgba(255,255,255,.18)}
+.screen-tab.active{background:var(--kowhai);border-color:var(--kowhai);color:var(--ink);font-weight:600}
+.screen-tab:focus-visible{outline:2px solid var(--kowhai);outline-offset:2px}
+
+.stage{max-width:1120px;margin:26px auto 60px;padding:0 20px}
+.screen{display:none}
+.screen.active{display:block}
+.screen-note{background:#EEF3EE;border-left:3px solid var(--fern);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#3C4A43;margin-bottom:16px}
+.screen-note b{color:var(--fern-deep)}
+
+/* ===== Fake browser frame ===== */
+.frame{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 12px 34px rgba(23,36,31,.09)}
+.frame-bar{background:#EDEFEA;border-bottom:1px solid var(--line);padding:9px 14px;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:#C9CFC7}
+.urlbox{flex:1;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 12px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+
+/* ===== In-app header ===== */
+.app-head{display:flex;align-items:center;gap:12px;padding:16px 26px;border-bottom:1px solid var(--line)}
+.logo{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--fern-deep)}
+.logo span{color:var(--kowhai)}
+.app-head .tag{font-size:11px;background:var(--lake-soft);color:var(--lake);padding:3px 9px;border-radius:99px;font-weight:600}
+.app-nav{margin-left:auto;display:flex;gap:20px;font-size:13px;color:var(--muted)}
+.app-nav b{color:var(--ink)}
+
+.pad{padding:28px}
+h2.page-title{font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:4px}
+.page-sub{color:var(--muted);margin-bottom:22px;font-size:13.5px}
+
+/* ===== Forms ===== */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:760px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--muted)}
+.control{border:1.5px solid var(--line);border-radius:9px;padding:11px 13px;background:#fff;font-size:14px;color:var(--ink);display:flex;align-items:center;justify-content:space-between}
+.control .caret{color:var(--muted);font-size:11px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--line);border-radius:99px;padding:7px 14px;font-size:13px;background:#fff;color:var(--muted)}
+.chip.on{background:var(--fern);border-color:var(--fern);color:#fff;font-weight:500}
+.span2{grid-column:1/-1}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:9px;overflow:hidden;width:max-content}
+.seg div{padding:9px 18px;font-size:13px;color:var(--muted);border-right:1.5px solid var(--line)}
+.seg div:last-child{border-right:none}
+.seg .on{background:var(--fern);color:#fff;font-weight:500}
+.cta{background:var(--kowhai);color:var(--ink);border:none;font-weight:700;font-family:var(--font-display);font-size:15px;padding:13px 30px;border-radius:10px;margin-top:8px;width:max-content}
+.hint{font-size:11.5px;color:var(--muted)}
+
+/* ===== Pipeline screen ===== */
+.pipe-wrap{max-width:680px;margin:0 auto}
+.pipe{display:flex;flex-direction:column;gap:0;margin-top:18px}
+.stage-row{display:flex;gap:16px;align-items:flex-start}
+.rail{display:flex;flex-direction:column;align-items:center;width:34px;flex-shrink:0}
+.node{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:600;border:2px solid var(--line);background:#fff;color:var(--muted)}
+.node.done{background:var(--fern);border-color:var(--fern);color:#fff}
+.node.run{background:#fff;border-color:var(--kowhai);color:var(--kowhai);box-shadow:0 0 0 5px rgba(228,166,26,.18)}
+.rail .link{width:2px;flex:1;min-height:26px;background:var(--line)}
+.rail .link.done{background:var(--fern)}
+.stage-body{padding-bottom:22px;flex:1}
+.stage-name{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:9px}
+.badge{font-size:10.5px;font-family:var(--font-mono);padding:2px 8px;border-radius:5px;background:#EEF3EE;color:var(--fern-deep);font-weight:500}
+.badge.blue{background:var(--lake-soft);color:var(--lake)}
+.stage-msg{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:5px}
+.stage-msg.live{color:var(--kowhai);font-weight:500}
+.pipe-meta{display:flex;justify-content:space-between;align-items:center;background:#F0F2EE;border:1px solid var(--line);border-radius:10px;padding:12px 18px;font-size:12.5px;color:var(--muted)}
+.pipe-meta b{font-family:var(--font-mono);color:var(--ink)}
+.pbar{height:6px;background:var(--line);border-radius:99px;margin:16px 0 22px;overflow:hidden}
+.pbar div{height:100%;width:58%;background:linear-gradient(90deg,var(--fern),var(--kowhai));border-radius:99px}
+
+/* ===== Itinerary screen ===== */
+.split{display:grid;grid-template-columns:1fr 380px;gap:0;min-height:560px}
+.itin-col{padding:24px 26px;border-right:1px solid var(--line)}
+.day-tabs{display:flex;gap:8px;margin:14px 0 20px}
+.day-tab{border:1.5px solid var(--line);border-radius:9px;padding:8px 15px;font-size:13px;color:var(--muted);background:#fff}
+.day-tab.on{background:var(--fern);border-color:var(--fern);color:#fff;font-weight:600}
+.wx{margin-left:auto;font-size:12.5px;background:var(--lake-soft);color:var(--lake);border-radius:9px;padding:8px 13px;font-weight:500}
+.stop{display:flex;gap:14px}
+.stop .t{font-family:var(--font-mono);font-size:12px;color:var(--muted);width:52px;flex-shrink:0;padding-top:3px}
+.stop .marker{width:26px;height:26px;border-radius:50%;background:var(--fern);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stop-card{flex:1;border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-bottom:8px;background:#fff}
+.stop-card .nm{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stop-card .ds{font-size:12.5px;color:var(--muted);margin-top:3px}
+.src{font-size:10px;font-family:var(--font-mono);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--muted)}
+.stop-actions{display:flex;gap:10px;margin-top:9px}
+.mini-btn{font-size:11.5px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;color:var(--fern-deep);font-weight:500}
+.leg{display:flex;gap:14px;align-items:center;margin:2px 0 10px}
+.leg .t{width:52px;flex-shrink:0}
+.leg .lgline{width:26px;display:flex;justify-content:center;flex-shrink:0}
+.leg .lgline i{width:2px;height:30px;background:repeating-linear-gradient(var(--lake),var(--lake) 4px,transparent 4px,transparent 8px)}
+.leg .lgtxt{font-family:var(--font-mono);font-size:11.5px;color:var(--lake)}
+
+/* fake map */
+.mapbox{position:relative;background:linear-gradient(150deg,#E6EEE4 0%,#DCE8EC 55%,#D3E2E9 100%);overflow:hidden}
+.mapbox svg{position:absolute;inset:0;width:100%;height:100%}
+.map-attr{position:absolute;bottom:8px;right:10px;font-size:10px;font-family:var(--font-mono);color:var(--muted);background:rgba(255,255,255,.8);padding:2px 8px;border-radius:4px}
+.map-title{position:absolute;top:12px;left:12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.map-legend{position:absolute;bottom:34px;left:12px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:5px}
+.map-legend span{display:flex;align-items:center;gap:7px}
+.dotm{width:10px;height:10px;border-radius:50%;background:var(--fern)}
+.dashm{width:16px;height:0;border-top:2px dashed var(--lake)}
+
+/* ===== Edit screen modal ===== */
+.dim{position:relative}
+.dim::after{content:"";position:absolute;inset:0;background:rgba(23,36,31,.38)}
+.modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-width:92%;background:#fff;border-radius:15px;box-shadow:0 24px 60px rgba(0,0,0,.28);z-index:5;padding:24px}
+.modal h3{font-family:var(--font-display);font-size:19px;margin-bottom:3px}
+.modal .msub{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.alt{display:flex;gap:12px;border:1.5px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:9px;align-items:center}
+.alt.on{border-color:var(--fern);background:#F2F7F3}
+.alt .ic{width:38px;height:38px;border-radius:9px;background:var(--lake-soft);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.alt .nm{font-weight:600;font-size:13.5px}
+.alt .ds{font-size:11.5px;color:var(--muted)}
+.alt .dist{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--lake);flex-shrink:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.btn-ghost{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:9px 18px;font-size:13px;color:var(--muted)}
+.btn-solid{border:none;background:var(--fern);color:#fff;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600}
+
+/* ===== Export screen ===== */
+.exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:720px}
+.exp-card{border:1.5px solid var(--line);border-radius:13px;padding:20px;background:#fff}
+.exp-card .ic{font-size:26px;margin-bottom:9px}
+.exp-card h4{font-family:var(--font-display);font-size:16px;margin-bottom:4px}
+.exp-card p{font-size:12.5px;color:var(--muted);margin-bottom:13px}
+.doc-preview{border:1px solid var(--line);border-radius:11px;background:#fff;padding:22px 26px;max-width:520px;margin-top:26px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.doc-preview h5{font-family:var(--font-display);font-size:15px;margin-bottom:8px}
+.doc-line{height:7px;background:#EDEFEA;border-radius:99px;margin:7px 0}
+.doc-line.w60{width:60%}.doc-line.w80{width:80%}.doc-line.w45{width:45%}
+
+/* ===== POI details screen ===== */
+.crumb{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.crumb b{color:var(--fern-deep)}
+.det-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:24px;align-items:start}
+.det-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.det-head h2{font-family:var(--font-display);font-size:25px;font-weight:700}
+.tagrow{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 18px}
+.facts{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.facts .fr{display:flex;border-bottom:1px solid var(--line);font-size:13px}
+.facts .fr:last-child{border-bottom:none}
+.facts .fk{width:150px;flex-shrink:0;background:#F3F5F1;padding:10px 14px;font-weight:600;color:#4A554F;font-size:12px}
+.facts .fv{padding:10px 14px;flex:1}
+.facts .fv a{color:var(--lake)}
+.prov{background:#F0F2EE;border:1px solid var(--line);border-radius:11px;padding:13px 16px;font-size:12px;color:var(--muted)}
+.prov b{color:var(--fern-deep)}
+.prov .mono{font-family:var(--font-mono);font-size:11px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.side-card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:15px 17px;margin-bottom:14px}
+.side-card h5{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:9px;font-weight:600}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600}
+.minimap{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);height:170px;background:linear-gradient(150deg,#E6EEE4,#D6E4EA);margin-bottom:14px}
+.minimap svg{position:absolute;inset:0;width:100%;height:100%}
+.det-actions{display:flex;gap:10px;margin-top:4px}
+.foot{margin-top:22px;text-align:center;font-size:11.5px;color:var(--muted)}
+
+@media(max-width:860px){
+  .split{grid-template-columns:1fr}
+  .itin-col{border-right:none;border-bottom:1px solid var(--line)}
+  .mapbox{min-height:300px}
+  .form-grid{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="shell-header">
+  <h1>NZTravelGuideMaster · UI Prototype</h1>
+  <span class="sub">COMPX576 — Multi-agent NZ travel planner · 5 functional pages</span>
+  <nav class="screen-tabs" role="tablist">
+    <button class="screen-tab active" data-s="s1">1 · Plan a trip</button>
+    <button class="screen-tab" data-s="s2">2 · Agents working</button>
+    <button class="screen-tab" data-s="s3">3 · Itinerary + map</button>
+    <button class="screen-tab" data-s="s4">4 · Edit &amp; refine</button>
+    <button class="screen-tab" data-s="s5">5 · Export</button>
+    <button class="screen-tab" data-s="s6">6 · POI details</button>
+  </nav>
+</header>
+
+<main class="stage">
+
+<!-- ================= SCREEN 1: INPUT ================= -->
+<section class="screen active" id="s1">
+  <p class="screen-note"><b>Page 1 — Trip input.</b> Collects structured constraints that seed the agent pipeline: destination (NZ-only), dates, interests, budget and pace. All fields map directly to the Planner agent's input schema.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/</span></div>
+    <div class="app-head">
+      <span class="logo">NZTravel<span>GuideMaster</span></span>
+      <span class="tag">Aotearoa NZ only</span>
+      <nav class="app-nav"><b>Plan</b><span>My trips</span><span>About</span></nav>
+    </div>
+    <div class="pad">
+      <h2 class="page-title">Where in New Zealand?</h2>
+      <p class="page-sub">Tell the agents your constraints — they'll research real places, routes and weather to build your itinerary.</p>
+      <div class="form-grid">
+        <div class="field">
+          <label>Destination city</label>
+          <div class="control">Queenstown <span class="caret">▾</span></div>
+          <span class="hint">Auckland · Wellington · Christchurch · Rotorua · Queenstown · Dunedin</span>
+        </div>
+        <div class="field">
+          <label>Travel dates</label>
+          <div class="control">14 Sep – 17 Sep 2026 <span class="caret">📅</span></div>
+          <span class="hint">4 days · 3 nights</span>
+        </div>
+        <div class="field span2">
+          <label>Interests</label>
+          <div class="chips">
+            <span class="chip on">Nature &amp; scenery</span>
+            <span class="chip on">Adventure</span>
+            <span class="chip">Food &amp; coffee</span>
+            <span class="chip on">Walks &amp; hikes</span>
+            <span class="chip">Museums &amp; culture</span>
+            <span class="chip">Māori heritage</span>
+            <span class="chip">Family friendly</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Budget per day (NZD)</label>
+          <div class="control">$150 – $250 <span class="caret">▾</span></div>
+        </div>
+        <div class="field">
+          <label>Pace</label>
+          <div class="seg"><div>Relaxed</div><div class="on">Balanced</div><div>Packed</div></div>
+        </div>
+        <div class="field span2">
+          <label>Anything else? (optional, free text)</label>
+          <div class="control" style="color:var(--muted)">e.g. "no early mornings, we have a rental car"</div>
+        </div>
+      </div>
+      <button class="cta">Generate my itinerary →</button>
+      <p class="hint" style="margin-top:10px">Typically takes under 60 s — agents work over pre-fetched OpenStreetMap data, self-hosted routing and a live weather forecast.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 2: PIPELINE ================= -->
+<section class="screen" id="s2">
+  <p class="screen-note"><b>Page 2 — Agent progress.</b> The serial pipeline is made visible: 4 LLM agents stream a status line each, followed by deterministic (non-LLM) tools for routing and budgeting. This is the progress-indication strategy and doubles as evidence of the agents-vs-tools separation of concerns.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/plan/generating</span></div>
+    <div class="app-head">
+      <span class="logo">NZTravel<span>GuideMaster</span></span>
+      <nav class="app-nav"><b>Plan</b><span>My trips</span><span>About</span></nav>
+    </div>
+    <div class="pad">
+      <div class="pipe-wrap">
+        <h2 class="page-title">Building your Queenstown trip…</h2>
+        <p class="page-sub">4 AI agents run in sequence, then deterministic tools finish the job. Target: under 60 s total.</p>
+        <div class="pbar"><div></div></div>
+        <div class="pipe">
+          <div class="stage-row">
+            <div class="rail"><div class="node done">✓</div><div class="link done"></div></div>
+            <div class="stage-body">
+              <div class="stage-name">AttractionSearchAgent <span class="badge">LLM</span> <span class="badge blue">cached OSM POI data</span></div>
+              <div class="stage-msg">Selected 12 attraction candidates from 87 cached Queenstown POIs, adventure-weighted</div>
+            </div>
+          </div>
+          <div class="stage-row">
+            <div class="rail"><div class="node done">✓</div><div class="link done"></div></div>
+            <div class="stage-body">
+              <div class="stage-name">HotelAgent <span class="badge">LLM</span> <span class="badge blue">cached OSM accommodation</span></div>
+              <div class="stage-msg">Shortlisted 3 stays near the town centre within $150–250/day budget</div>
+            </div>
+          </div>
+          <div class="stage-row">
+            <div class="rail"><div class="node run">●</div><div class="link"></div></div>
+            <div class="stage-body">
+              <div class="stage-name">WeatherQueryAgent <span class="badge blue">Open-Meteo</span></div>
+              <div class="stage-msg live">Fetching 4-day forecast… flagging rain-risk slots for outdoor activities</div>
+            </div>
+          </div>
+          <div class="stage-row">
+            <div class="rail"><div class="node">4</div><div class="link"></div></div>
+            <div class="stage-body">
+              <div class="stage-name">PlannerAgent <span class="badge">LLM · TripPlan JSON schema</span></div>
+              <div class="stage-msg">Waiting — reasons over candidates + weather to compose the validated day-by-day plan</div>
+            </div>
+          </div>
+          <div class="stage-row">
+            <div class="rail"><div class="node" style="border-radius:8px">⚙</div></div>
+            <div class="stage-body">
+              <div class="stage-name">Deterministic tools <span class="badge blue">OSRM routing · budget rules · no LLM</span></div>
+              <div class="stage-msg">Waiting — backfills verified coordinates, travel times and the NZD budget breakdown</div>
+            </div>
+          </div>
+        </div>
+        <div class="pipe-meta">
+          <span>Elapsed <b>00:23</b></span>
+          <span>State checkpointed in <b>LangGraph</b> — a failed step retries without restarting the pipeline</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 3: ITINERARY ================= -->
+<section class="screen" id="s3">
+  <p class="screen-note"><b>Page 3 — Itinerary result.</b> Day-by-day timeline beside a Leaflet map. Every stop carries a provenance badge (OSM / OSRM / forecast) — the "grounded data" differentiation vs. a plain LLM. Travel legs show deterministic OSRM times, not guesses.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/trip/qt-0914</span></div>
+    <div class="app-head">
+      <span class="logo">NZTravel<span>GuideMaster</span></span>
+      <nav class="app-nav"><b>Itinerary</b><span>Regenerate</span><span>Export</span></nav>
+    </div>
+    <div class="split">
+      <div class="itin-col">
+        <h2 class="page-title" style="font-size:21px">Queenstown · 4 days</h2>
+        <div class="day-tabs">
+          <span class="day-tab on">Day 1</span><span class="day-tab">Day 2</span><span class="day-tab">Day 3</span><span class="day-tab">Day 4</span>
+          <span class="wx">☀️ 14° · light wind — good for outdoors</span>
+        </div>
+
+        <div class="stop">
+          <span class="t">09:00</span><span class="marker">1</span>
+          <div class="stop-card">
+            <div class="nm">Queenstown Gardens <span class="src">OSM · leisure=park</span></div>
+            <div class="ds">Lakeside loop walk to start the day · free · ~1 h</div>
+            <div class="stop-actions"><span class="mini-btn">🔒 Lock</span><span class="mini-btn">⇄ Replace</span><span class="mini-btn">ℹ Details</span></div>
+          </div>
+        </div>
+        <div class="leg"><span class="t"></span><span class="lgline"><i></i></span><span class="lgtxt">↳ 6 min drive · 2.1 km · OSRM</span></div>
+
+        <div class="stop">
+          <span class="t">10:30</span><span class="marker">2</span>
+          <div class="stop-card">
+            <div class="nm">Skyline Gondola &amp; Luge <span class="src">OSM · tourism=attraction</span></div>
+            <div class="ds">Bob's Peak viewpoint · est. $95 NZD · ~2.5 h · book ahead</div>
+            <div class="stop-actions"><span class="mini-btn">🔒 Lock</span><span class="mini-btn">⇄ Replace</span><span class="mini-btn">ℹ Details</span></div>
+          </div>
+        </div>
+        <div class="leg"><span class="t"></span><span class="lgline"><i></i></span><span class="lgtxt">↳ 4 min walk · 350 m · OSRM</span></div>
+
+        <div class="stop">
+          <span class="t">13:30</span><span class="marker">3</span>
+          <div class="stop-card">
+            <div class="nm">Fergburger (lunch) <span class="src">OSM · amenity=fast_food</span></div>
+            <div class="ds">Iconic burger stop · ~$20 NZD · expect a queue</div>
+            <div class="stop-actions"><span class="mini-btn">🔒 Lock</span><span class="mini-btn">⇄ Replace</span><span class="mini-btn">ℹ Details</span></div>
+          </div>
+        </div>
+        <div class="leg"><span class="t"></span><span class="lgline"><i></i></span><span class="lgtxt">↳ 18 min drive · 12.4 km · OSRM</span></div>
+
+        <div class="stop">
+          <span class="t">15:00</span><span class="marker">4</span>
+          <div class="stop-card">
+            <div class="nm">Shotover Jet, Arthurs Point <span class="src">OSM · tourism=attraction</span></div>
+            <div class="ds">Canyon jet-boat ride · est. $159 NZD · ~1.5 h incl. briefing</div>
+            <div class="stop-actions"><span class="mini-btn">🔒 Lock</span><span class="mini-btn">⇄ Replace</span><span class="mini-btn">ℹ Details</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mapbox">
+        <svg viewBox="0 0 380 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <path d="M-20,430 C80,390 140,470 250,420 C330,385 400,430 420,410 L420,580 L-20,580 Z" fill="#BFD9E4"/>
+          <path d="M-20,470 C90,430 160,500 270,455 C340,428 400,465 420,450 L420,580 L-20,580 Z" fill="#A9CCDC"/>
+          <path d="M40,60 C120,20 240,40 330,90" stroke="#CBD8CB" stroke-width="26" fill="none" opacity=".6"/>
+          <path d="M0,200 C110,170 250,230 380,190" stroke="#CBD8CB" stroke-width="18" fill="none" opacity=".5"/>
+          <path d="M120,352 L156,300 L188,262 L262,180" stroke="#3E7CB1" stroke-width="3" stroke-dasharray="7 6" fill="none"/>
+          <g font-family="Inter,sans-serif" font-size="12" font-weight="600">
+            <circle cx="120" cy="352" r="13" fill="#2E5E4E"/><text x="120" y="356" fill="#fff" text-anchor="middle">1</text>
+            <circle cx="156" cy="300" r="13" fill="#2E5E4E"/><text x="156" y="304" fill="#fff" text-anchor="middle">2</text>
+            <circle cx="188" cy="262" r="13" fill="#2E5E4E"/><text x="188" y="266" fill="#fff" text-anchor="middle">3</text>
+            <circle cx="262" cy="180" r="13" fill="#2E5E4E"/><text x="262" y="184" fill="#fff" text-anchor="middle">4</text>
+          </g>
+          <text x="60" y="510" font-family="Inter,sans-serif" font-size="11" fill="#5B7C93" font-style="italic">Lake Wakatipu</text>
+        </svg>
+        <div class="map-title">Day 1 route · 14.9 km total</div>
+        <div class="map-legend">
+          <span><span class="dotm"></span> Itinerary stop (click for popup)</span>
+          <span><span class="dashm"></span> OSRM route</span>
+        </div>
+        <div class="map-attr">Leaflet | © OpenStreetMap contributors</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 4: EDIT ================= -->
+<section class="screen" id="s4">
+  <p class="screen-note"><b>Page 4 — Edit &amp; refine.</b> Structured interactivity: replacing a stop filters cached POI candidates by the day's context (locked stops, remaining time &amp; budget, spatial cluster), then the deterministic routing tool re-computes the day — no LLM call needed for an edit.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/trip/qt-0914</span></div>
+    <div class="dim">
+      <div class="app-head">
+        <span class="logo">NZTravel<span>GuideMaster</span></span>
+        <nav class="app-nav"><b>Itinerary</b><span>Regenerate</span><span>Export</span></nav>
+      </div>
+      <div class="pad" style="min-height:520px">
+        <h2 class="page-title" style="font-size:21px">Queenstown · 4 days</h2>
+        <p class="page-sub">Day 1 — replacing stop 3…</p>
+      </div>
+      <div class="modal">
+        <h3>Replace "Fergburger"</h3>
+        <p class="msub">Alternatives filtered by the POI agent: lunch spots within 10 min of stops 2 → 4, fitting your remaining time &amp; budget.</p>
+        <div class="alt on">
+          <span class="ic">🥧</span>
+          <div><div class="nm">Mrs Ferg Gelateria &amp; Deli</div><div class="ds">Casual · ~$15 NZD · rarely queues</div></div>
+          <span class="dist">2 min walk</span>
+        </div>
+        <div class="alt">
+          <span class="ic">🍜</span>
+          <div><div class="nm">Taco Medic, Searle Lane</div><div class="ds">Street food · ~$18 NZD</div></div>
+          <span class="dist">4 min walk</span>
+        </div>
+        <div class="alt">
+          <span class="ic">🍺</span>
+          <div><div class="nm">Atlas Beer Cafe, Steamer Wharf</div><div class="ds">Pub lunch · ~$28 NZD · lake views</div></div>
+          <span class="dist">6 min walk</span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost">Cancel</button>
+          <button class="btn-solid">Replace &amp; re-route day</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 5: EXPORT ================= -->
+<section class="screen" id="s5">
+  <p class="screen-note"><b>Page 5 — Export.</b> Browser-side export via html2canvas + jsPDF: a shareable itinerary image (PNG) and a multi-page PDF. The map is rendered to a static snapshot for export — the workaround for the known Leaflet-canvas capture limitation.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/trip/qt-0914/export</span></div>
+    <div class="app-head">
+      <span class="logo">NZTravel<span>GuideMaster</span></span>
+      <nav class="app-nav"><span>Itinerary</span><span>Regenerate</span><b>Export</b></nav>
+    </div>
+    <div class="pad">
+      <h2 class="page-title">Take your trip with you</h2>
+      <p class="page-sub">Your itinerary, formatted for offline use.</p>
+      <div class="exp-grid">
+        <div class="exp-card">
+          <div class="ic">🖼️</div>
+          <h4>Itinerary image (PNG)</h4>
+          <p>A single shareable card of your trip — days, stops and budget summary. Rendered in-browser with html2canvas.</p>
+          <button class="btn-solid">Download image</button>
+        </div>
+        <div class="exp-card">
+          <div class="ic">📑</div>
+          <h4>PDF document</h4>
+          <p>Multi-page PDF with the full day-by-day plan, travel times, budget breakdown in NZD and a static map snapshot. Built with jsPDF.</p>
+          <button class="btn-ghost" style="color:var(--fern-deep);font-weight:600">Download PDF</button>
+        </div>
+      </div>
+      <div class="doc-preview">
+        <h5>Queenstown — 4-day itinerary.pdf</h5>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Generated 24 Jul 2026 · TravelGuideMaster · map data © OpenStreetMap</div>
+        <div class="doc-line w60"></div>
+        <div class="doc-line w80"></div>
+        <div class="doc-line w45"></div>
+        <div class="doc-line w80"></div>
+        <div class="doc-line w60"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 6: POI DETAILS ================= -->
+<section class="screen" id="s6">
+  <p class="screen-note"><b>Page 6 — POI details.</b> Opened from any stop's "ℹ Details" button. Shows only what the cached OSM data actually contains (tags, hours, access) plus deterministic context: heuristic budget estimate, OSRM travel time from the previous stop, and the day's forecast. No fabricated ratings or reviews — provenance is explicit.</p>
+  <div class="frame">
+    <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbox">localhost:5173/trip/qt-0914/poi/skyline-gondola</span></div>
+    <div class="app-head">
+      <span class="logo">NZTravel<span>GuideMaster</span></span>
+      <nav class="app-nav"><b>Itinerary</b><span>Regenerate</span><span>Export</span></nav>
+    </div>
+    <div class="pad">
+      <p class="crumb">← Back to itinerary · <b>Day 1</b> · Stop 2 of 4</p>
+      <div class="det-grid">
+        <div>
+          <div class="det-head">
+            <h2>Skyline Gondola &amp; Luge</h2>
+          </div>
+          <div class="tagrow">
+            <span class="badge blue">tourism=attraction</span>
+            <span class="badge blue">aerialway=gondola</span>
+            <span class="badge blue">fee=yes</span>
+            <span class="badge">Adventure · matches your interests</span>
+          </div>
+          <p style="font-size:13.5px;color:#3C4A43;margin-bottom:18px;max-width:520px">
+            Gondola ride up Bob's Peak with panoramic views over Queenstown and Lake Wakatipu, plus a downhill luge track at the top. One of the town's signature attractions — a strong fit for your adventure + scenery preferences.
+          </p>
+          <div class="facts">
+            <div class="fr"><div class="fk">Opening hours</div><div class="fv">Mo–Su 09:00–21:00 <span class="src" style="margin-left:6px">osm: opening_hours</span></div></div>
+            <div class="fr"><div class="fk">Address</div><div class="fv">Brecon Street, Queenstown 9300</div></div>
+            <div class="fr"><div class="fk">Website</div><div class="fv"><a>skyline.co.nz/queenstown</a> <span class="src" style="margin-left:6px">osm: website</span></div></div>
+            <div class="fr"><div class="fk">Wheelchair access</div><div class="fv">Yes (gondola); luge not accessible</div></div>
+            <div class="fr"><div class="fk">Coordinates</div><div class="fv"><span style="font-family:var(--font-mono);font-size:12px">-45.0284, 168.6540</span> · verified</div></div>
+          </div>
+          <div class="prov">
+            <b>Data provenance.</b> Facts above come from the cached OpenStreetMap extract <span class="mono">nz-latest.osm.pbf · 2026-07-12</span>. OSM does not provide ratings, reviews or ticket prices — the cost below is a heuristic estimate by category, and the description is LLM-generated and clearly separated from sourced facts.
+          </div>
+        </div>
+        <div>
+          <div class="minimap">
+            <svg viewBox="0 0 340 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <path d="M-10,130 C70,105 160,145 250,118 C300,104 330,120 350,112 L350,180 L-10,180 Z" fill="#B7D3E0"/>
+              <path d="M60,95 C130,60 220,75 300,45" stroke="#CBD8CB" stroke-width="16" fill="none" opacity=".55"/>
+              <circle cx="168" cy="78" r="14" fill="#2E5E4E"/>
+              <text x="168" y="83" fill="#fff" font-size="13" font-weight="600" font-family="Inter,sans-serif" text-anchor="middle">2</text>
+            </svg>
+            <div class="map-attr">Leaflet | © OpenStreetMap</div>
+          </div>
+          <div class="side-card">
+            <h5>In your plan</h5>
+            <div class="kv"><span class="k">Scheduled</span><span class="v">Day 1 · 10:30–13:00</span></div>
+            <div class="kv"><span class="k">From previous stop</span><span class="v">6 min drive · OSRM</span></div>
+            <div class="kv"><span class="k">Est. cost</span><span class="v">~$95 NZD / person</span></div>
+            <div class="kv"><span class="k">Cost basis</span><span class="v" style="font-weight:400;color:var(--muted)">heuristic: paid attraction</span></div>
+          </div>
+          <div class="side-card">
+            <h5>Conditions that day</h5>
+            <div class="kv"><span class="k">Forecast (14 Sep)</span><span class="v">☀️ 14° · light wind</span></div>
+            <div class="kv"><span class="k">Outdoor suitability</span><span class="v" style="color:var(--ok)">Good</span></div>
+          </div>
+          <div class="det-actions">
+            <button class="btn-solid">🔒 Lock in plan</button>
+            <button class="btn-ghost">⇄ Replace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+<p class="foot">NZTravelGuideMaster prototype · mid-fidelity mockups · content is illustrative sample data</p>
+
+<script>
+const tabs=document.querySelectorAll('.screen-tab');
+tabs.forEach(t=>t.addEventListener('click',()=>{
+  tabs.forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(t.dataset.s).classList.add('active');
+  window.scrollTo({top:0});
+}));
+</script>
+</body>
+</html>
