@@ -301,9 +301,13 @@ export default function App() {
         {status.kind === "error" && (
           <div className="rounded-sm border border-thermal/50 bg-thermal/10 px-4 py-3">
             <p className="text-sm text-ink">{status.message}</p>
-            <p className="mt-1 font-mono text-xs text-graphite">
-              cd backend &amp;&amp; uvicorn app.main:app --reload
-            </p>
+            {/* A hint for the developer, not the traveller: in a deployed
+                build there is no backend directory to cd into. */}
+            {import.meta.env.DEV && (
+              <p className="mt-1 font-mono text-xs text-graphite">
+                cd backend &amp;&amp; uvicorn app.main:app --reload
+              </p>
+            )}
           </div>
         )}
 

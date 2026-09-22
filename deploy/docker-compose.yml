@@ -1,0 +1,58 @@
+# TravelGuideMaster on a single host.
+#
+#   web  Caddy: serves the built front end, proxies /api, terminates TLS.
+#   api  FastAPI + the agent pipeline. Not published — reachable only from web.
+#
+# Run from this directory:  docker compose up -d --build
+
+name: travelguidemaster
+
+services:
+  web:
+    build: ../frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here. Losing this volume means a new certificate
+      # on every start, and Let's Encrypt allows only five duplicates a
+      # week — so it is a named volume, not something rebuilt with the image.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [edge, internal]
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CACHE_DB_PATH: /app/data/cache.sqlite
+      FRONTEND_ORIGIN: https://${DOMAIN}
+    volumes:
+      # The pre-fetched POI cache. It is not in git (backend/.gitignore
+      # excludes data/), so it is copied to the server separately — without
+      # it every plan request fails with "No cached attractions".
+      - ../backend/data:/app/data
+    # No `ports:` on purpose. uvicorn trusts X-Forwarded-For from anyone
+    # (--forwarded-allow-ips "*"), which is safe only while Caddy is the
+    # sole thing that can reach it.
+    networks: [internal]
+
+networks:
+  edge:
+  # internal: true would also cut the API off from the internet, and it
+  # needs the LLM, Open-Meteo and OSRM. Isolation comes from not
+  # publishing its port.
+  internal:
+
+volumes:
+  caddy_data:
+  caddy_config:

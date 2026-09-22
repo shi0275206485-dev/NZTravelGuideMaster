@@ -11,12 +11,21 @@ import type { Destination, TripPlan, TripRequest } from "../types/api";
 
 const ACCESS_CODE_KEY = "travelguidemaster:access-code";
 
+/**
+ * The code the traveller entered, or — in development only — one from
+ * `VITE_ACCESS_CODE`.
+ *
+ * The development guard is the whole point. Vite inlines every `VITE_*`
+ * variable into the built JavaScript as a string literal, so a code read
+ * from the environment unconditionally would ship inside a bundle anyone
+ * can download, and the gate would check a value it had already handed
+ * out. `import.meta.env.DEV` is replaced with `false` in a production
+ * build, and the branch — literal included — is then removed as dead code.
+ */
 export function getAccessCode(): string {
-  return (
-    sessionStorage.getItem(ACCESS_CODE_KEY) ??
-    import.meta.env.VITE_ACCESS_CODE ??
-    ""
-  );
+  const stored = sessionStorage.getItem(ACCESS_CODE_KEY);
+  if (stored !== null) return stored;
+  return import.meta.env.DEV ? (import.meta.env.VITE_ACCESS_CODE ?? "") : "";
 }
 
 export function setAccessCode(code: string): void {

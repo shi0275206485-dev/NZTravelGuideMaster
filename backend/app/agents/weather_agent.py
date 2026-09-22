@@ -115,6 +115,13 @@ def _unavailable(reason: str) -> WeatherInfo:
     return WeatherInfo(available=False, summary=reason, is_wet=False)
 
 
+# Named because coverage_notice has to tell it apart from "beyond the
+# window". Both produce a trip with no forecast at all, for opposite
+# reasons: one is about the dates the traveller chose, the other about a
+# service being down, and only the second is worth trying again.
+_UNREACHABLE = "Forecast unavailable — planned without weather adjustment"
+
+
 def get_weather(
     destination: str,
     start_date: date,
@@ -160,10 +167,7 @@ def get_weather(
         # A missing forecast degrades the itinerary; it does not invalidate
         # it. Everything else about the trip is still plannable.
         logger.warning("weather lookup failed for %s: %s", destination, exc)
-        return {
-            d: _unavailable("Forecast unavailable — planned without weather adjustment")
-            for d in range(1, num_days + 1)
-        }
+        return {d: _unavailable(_UNREACHABLE) for d in range(1, num_days + 1)}
 
     return _parse_daily(payload, start_date, num_days)
 
@@ -252,6 +256,16 @@ def coverage_notice(weather: dict[int, WeatherInfo]) -> str:
         return ""
 
     if available == 0:
+        # Zero coverage used to be reported as "beyond the window" whatever
+        # its cause, so an Open-Meteo outage told a traveller planning ten
+        # days ahead that their dates were too far out — pointing them, and
+        # anyone debugging, at the wrong thing.
+        if all(w.summary == _UNREACHABLE for w in weather.values()):
+            return (
+                "The weather forecast could not be retrieved, so this itinerary "
+                "was planned without weather adjustment. Generating again later "
+                "may include it."
+            )
         return (
             f"These dates are beyond the {FORECAST_WINDOW_DAYS}-day forecast "
             "window, so this itinerary was planned without weather adjustment."

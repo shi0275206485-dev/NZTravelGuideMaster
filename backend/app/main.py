@@ -8,19 +8,27 @@ Route surface is deliberately small:
     POST /api/recompute       recompute routes + budget after an edit (no LLM)
 
 Only /api/plan touches the LLM, so it is the only route carrying the
-access-code dependency and the strict rate limit — the recompute route is
-deterministic and cheap, and gating it would make editing feel punitive.
+access-code dependency and the usage limits in app/quota.py — the recompute
+route is deterministic and cheap, and gating it would make editing feel
+punitive.
+
+Behind the reverse proxy the client address comes from X-Forwarded-For,
+which uvicorn applies when started with --proxy-headers. That is safe only
+because the backend port is not published: the proxy is the one thing that
+can reach it, and Caddy discards forwarding headers sent by clients.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .cache import Cache
 from .config import Settings, get_settings
+from .quota import (Limit, Quota, QuotaExceeded, local_day,
+                    seconds_to_local_midnight)
 from .models import DESTINATION_CONFIG, TripPlan, TripRequest
 from .pipeline import run_pipeline
 from .recompute import RecomputeError, recompute
@@ -36,6 +44,23 @@ from .poi_repository import PoiUnavailableError
 @lru_cache
 def get_cache() -> Cache:
     return Cache(get_settings().cache_db_path)
+
+
+@lru_cache
+def get_quota() -> Quota:
+    return Quota(get_settings().cache_db_path)
+
+
+def _client(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _too_many(exc: QuotaExceeded) -> HTTPException:
+    return HTTPException(
+        status_code=429,
+        detail=str(exc),
+        headers={"Retry-After": str(exc.retry_after_s)},
+    )
 
 
 app = FastAPI(
@@ -62,18 +87,80 @@ app.add_middleware(
 # --------------------------------------------------------------------------
 
 def require_access_code(
+    request: Request,
     x_access_code: str = Header(default=""),
     settings: Settings = Depends(get_settings),
+    quota: Quota = Depends(get_quota),
 ) -> None:
     if not settings.access_control_enabled:
         return
     import secrets
 
-    if not secrets.compare_digest(x_access_code, settings.demo_access_code):
+    attempts = Limit.parse(settings.access_code_attempts)
+    client = _client(request)
+
+    # A locked-out address is refused before its code is even compared, so
+    # that a correct guess made during the lockout teaches it nothing.
+    if attempts and quota.peek("code-fail", client, attempts) >= attempts.count:
+        raise _too_many(QuotaExceeded(
+            "Too many incorrect access codes from this address. Try again later.",
+            quota.retry_after("code-fail", client, attempts),
+        ))
+
+    # Compared as bytes: compare_digest raises TypeError on non-ASCII str,
+    # which turned a header containing, say, "é" into a 500.
+    supplied = x_access_code.encode("utf-8")
+    expected = settings.demo_access_code.encode("utf-8")
+    if not secrets.compare_digest(supplied, expected):
+        if attempts:
+            try:
+                quota.hit("code-fail", client, attempts,
+                          "Too many incorrect access codes from this address. "
+                          "Try again later.")
+            except QuotaExceeded as exc:
+                raise _too_many(exc) from None
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing access code. Please enter the demo code provided.",
         )
+
+
+def enforce_generation_limits(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    quota: Quota = Depends(get_quota),
+) -> None:
+    """Count this generation against the per-address and daily limits.
+
+    Runs after the access check, so a request with a wrong code spends
+    nothing from these budgets — it has its own. Per-address first, then
+    daily: one address hammering the route is refused on its own count and
+    does not use up everyone else's day.
+
+    Counted before the pipeline runs rather than after it succeeds. Two
+    requests arriving together must not both slip under the cap, and a
+    generation that fails part-way has still made its model calls.
+    """
+    per_client = Limit.parse(settings.rate_limit_generate)
+    if per_client:
+        try:
+            quota.hit("plan-ip", _client(request), per_client,
+                      "You have generated several itineraries in a short time. "
+                      "Please wait before generating another — editing an "
+                      "existing plan is not limited.")
+        except QuotaExceeded as exc:
+            raise _too_many(exc) from None
+
+    if settings.daily_generation_cap > 0:
+        # Keyed by the local date, so the window never needs to roll over:
+        # tomorrow is a different row. The window only has to outlast a day.
+        daily = Limit(count=settings.daily_generation_cap, window_s=2 * 86400)
+        try:
+            quota.hit("plan-day", local_day(), daily,
+                      "Today's generation budget for this demo has been used. "
+                      "It resets at midnight NZ time.")
+        except QuotaExceeded as exc:
+            raise _too_many(QuotaExceeded(str(exc), seconds_to_local_midnight())) from None
 
 
 # --------------------------------------------------------------------------
@@ -100,7 +187,11 @@ def destinations() -> list[dict]:
 
 
 @app.post("/api/plan", response_model=TripPlan,
-          dependencies=[Depends(require_access_code)])
+          # Order matters: FastAPI resolves these in sequence, and the
+          # access check must run first so that a wrong code is charged to
+          # its own bucket and never to the generation budgets.
+          dependencies=[Depends(require_access_code),
+                        Depends(enforce_generation_limits)])
 def generate_plan(request: TripRequest) -> TripPlan:
     """Generate an itinerary.
 

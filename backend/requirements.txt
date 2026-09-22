@@ -4,6 +4,8 @@ pydantic>=2.9
 pydantic-settings>=2.6
 httpx>=0.27
 openai>=1.54
-slowapi>=0.1.9
 langgraph>=0.2
 python-dotenv>=1.0
+# zoneinfo reads the system tz database, which slim container images omit;
+# this package is its fallback. The daily cap resets on Auckland's midnight.
+tzdata>=2024.1

@@ -1,0 +1,7 @@
+# Rebuilt inside the image; a host copy may be for another platform.
+node_modules/
+dist/
+# May hold a development access code.
+.env
+.env.*
+travel-prototype.html

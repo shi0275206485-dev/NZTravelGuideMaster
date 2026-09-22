@@ -1,0 +1,12 @@
+# Secrets and data are supplied at run time, never baked in.
+.env
+data/
+# Development leftovers.
+__pycache__/
+*.pyc
+test_*.py
+test_results/
+scripts/
+*.csv
+1.py
+tt.py
