@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     # --- LLM (the only service requiring a key) ---
-    llm_api_key: str = "sk-ws-H.XIYPRE.oLtv.MEUCIQCll6_7SslEU1dgLNckqg4oQOc5Af3BRW17fDFlfcnbvAIgSO2GdpMrKLcr-pRYM0Ds6x2PWwDG4f2cq-3WHinz6cE"
+    llm_api_key: str = ""
     llm_base_url: str = "https://ws-aagpgukz5pwxc3g4.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
     llm_model: str = "qwen3.5-flash"
     llm_timeout_s: float = 60.0
