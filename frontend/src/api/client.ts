@@ -61,7 +61,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = `Request failed (${response.status})`;
     try {
       const body = await response.json();
-      if (typeof body.detail === "string") detail = body.detail;
+      if (typeof body.detail === "string") {
+        detail = body.detail;
+      } else if (Array.isArray(body.detail) && body.detail.length) {
+        // A schema rejection (422) arrives as a list of field errors
+        // rather than a sentence. Reading the first one out is the
+        // difference between "Trips cannot start in the past" and
+        // "Request failed (422)".
+        const first = body.detail[0];
+        if (typeof first?.msg === "string") {
+          detail = first.msg.replace(/^Value error,\s*/, "");
+        }
+      }
     } catch {
       // Non-JSON error body; the status-based message stands.
     }

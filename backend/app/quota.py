@@ -30,11 +30,17 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+
 from zoneinfo import ZoneInfo
 
 # The day the daily cap resets on is the operator's day, not UTC's: a cap
 # that rolls over at noon Auckland time is harder to reason about.
 LOCAL_TZ = ZoneInfo("Pacific/Auckland")
+
+# One definition of the project's timezone, in models. The day the daily
+# cap resets on is the operator's day, not UTC's: a cap that rolls over at
+# noon Auckland time is harder to reason about.
+from .models import LOCAL_TZ
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS quota (

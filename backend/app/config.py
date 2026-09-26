@@ -12,13 +12,15 @@ class Settings(BaseSettings):
     )
 
     # --- LLM (the only service requiring a key) ---
+
     # No defaults for the key or the workspace endpoint: both are secrets
     # tied to one account, and a default in source is a secret in git. They
     # come from backend/.env locally and from the server's .env in
     # deployment. With the key unset the agents degrade — significance
     # ranking and the fallback planner — rather than failing to start.
     llm_api_key: str = ""
-    llm_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    llm_base_url: str = "https://ws-aagpgukz5pwxc3g4.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+
     llm_model: str = "qwen3.5-flash"
     llm_timeout_s: float = 60.0
     # Fallback selected in Phase 1; switching is a config change, not a code change.

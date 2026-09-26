@@ -31,10 +31,36 @@ interface TripFormProps {
   initial?: TripRequest | null;
 }
 
-function isoDate(offsetDays: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
+/**
+ * A calendar date in New Zealand, as YYYY-MM-DD.
+ *
+ * Not `toISOString()`, which gives the UTC date: for most of a New Zealand
+ * day that is yesterday, so a picker whose lower bound came from it would
+ * offer a first day the server has already refused as past. And not the
+ * browser's own local date either — the trip happens here, so the dates
+ * the traveller picks are dates here, wherever they are reading from.
+ */
+function nzDate(offsetDays: number): string {
+  const moment = new Date(Date.now() + offsetDays * 86_400_000);
+  const parts = new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(moment);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** Shifts a past trip forward to start today, keeping its length. */
+function notBeforeToday(start: string, end: string): [string, string] {
+  const today = nzDate(0);
+  if (start >= today) return [start, end];
+  const nights = Math.max(
+    0,
+    Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000)
+  );
+  return [today, nzDate(nights)];
 }
 
 function formatDate(iso: string): string {
@@ -55,8 +81,14 @@ export default function TripForm({
   onSubmit,
   initial = null,
 }: TripFormProps) {
-  const [startDate, setStartDate] = useState(initial?.start_date ?? isoDate(14));
-  const [endDate, setEndDate] = useState(initial?.end_date ?? isoDate(16));
+  // Reusing a request from the history can hand back dates that have
+  // since passed; those are moved forward rather than submitted and
+  // refused.
+  const [seedStart, seedEnd] = initial
+    ? notBeforeToday(initial.start_date, initial.end_date)
+    : [nzDate(14), nzDate(16)];
+  const [startDate, setStartDate] = useState(seedStart);
+  const [endDate, setEndDate] = useState(seedEnd);
   const [preferences, setPreferences] = useState<TravelPreference[]>(
     initial?.preferences ?? ["nature"]
   );
@@ -72,7 +104,9 @@ export default function TripForm({
     )
   );
   const days = nights + 1;
-  const datesValid = nights >= 0 && days <= 7;
+  const today = nzDate(0);
+  const startsInPast = startDate < today;
+  const datesValid = nights >= 0 && days <= 7 && !startsInPast;
 
   /**
    * The selections above, rendered as a sentence.
@@ -102,8 +136,14 @@ export default function TripForm({
   // one's values in place.
   useEffect(() => {
     if (!initial) return;
-    setStartDate(initial.start_date);
-    setEndDate(initial.end_date);
+    // Clamped here as well as in the initial state: reusing a trip while
+    // the form is already open updates it through this effect, and a
+    // request from last month would otherwise arrive with its dates
+    // intact and the submit button disabled for a reason the traveller
+    // did not choose.
+    const [start, end] = notBeforeToday(initial.start_date, initial.end_date);
+    setStartDate(start);
+    setEndDate(end);
     setPreferences(initial.preferences);
     setBudgetLevel(initial.budget_level);
     setNote(initial.free_text ?? "");
@@ -188,6 +228,7 @@ export default function TripForm({
           <input
             id="start-date"
             type="date"
+            min={today}
             className="field font-mono"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -200,6 +241,7 @@ export default function TripForm({
           <input
             id="end-date"
             type="date"
+            min={startDate}
             className="field font-mono"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
@@ -209,7 +251,9 @@ export default function TripForm({
 
       {!datesValid && (
         <p className="font-mono text-xs text-thermal">
-          Trips run 1&ndash;7 days. Check the departure date.
+          {startsInPast
+            ? "Trips cannot start in the past."
+            : "Trips run 1\u20137 days. Check the departure date."}
         </p>
       )}
 
