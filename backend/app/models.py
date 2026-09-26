@@ -27,9 +27,10 @@ Design decisions worth knowing before editing this file:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from datetime import date as DateType
 from typing import Literal, Optional, get_args
+from zoneinfo import ZoneInfo
 
 from pydantic import (
     BaseModel,
@@ -47,6 +48,17 @@ from pydantic import (
 # --------------------------------------------------------------------------
 
 TimeSlot = Literal["morning", "afternoon", "evening"]
+
+# Every destination is in New Zealand, so "today" means today there. A
+# traveller planning from London must not be told their first day has
+# already passed because it is still yesterday where they are sitting —
+# and the reverse, a date already gone in Auckland, must not be accepted
+# because it is still today somewhere else.
+LOCAL_TZ = ZoneInfo("Pacific/Auckland")
+
+
+def local_today() -> date:
+    return datetime.now(LOCAL_TZ).date()
 
 AttractionCategory = Literal[
     "nature", "culture", "geothermal", "museum", "viewpoint",
@@ -378,6 +390,8 @@ class TripRequest(BaseModel):
 
     @model_validator(mode="after")
     def dates_are_sane(self) -> "TripRequest":
+        if self.start_date < local_today():
+            raise ValueError("Trips cannot start in the past.")
         if self.end_date < self.start_date:
             raise ValueError("end_date is before start_date")
         if (self.end_date - self.start_date).days + 1 > 7:
