@@ -3,6 +3,8 @@
 Route surface is deliberately small:
 
     GET  /api/health          liveness + cache stats
+    GET  /api/access          whether an access code is required
+    POST /api/access/verify   check a code (counted against the attempt limit)
     GET  /api/destinations    supported destinations for the input form
     POST /api/plan            generate an itinerary (LLM-backed, protected)
     POST /api/recompute       recompute routes + budget after an edit (no LLM)
@@ -22,9 +24,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+import logging
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from .access_codes import AccessCodes
 from .cache import Cache
 from .config import Settings, get_settings
 from .quota import (Limit, Quota, QuotaExceeded, local_day,
@@ -51,6 +56,11 @@ def get_quota() -> Quota:
     return Quota(get_settings().cache_db_path)
 
 
+@lru_cache
+def get_codes() -> AccessCodes:
+    return AccessCodes(get_settings().cache_db_path)
+
+
 def _client(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
@@ -62,6 +72,8 @@ def _too_many(exc: QuotaExceeded) -> HTTPException:
         headers={"Retry-After": str(exc.retry_after_s)},
     )
 
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="TravelGuideMaster API",
@@ -91,7 +103,14 @@ def require_access_code(
     x_access_code: str = Header(default=""),
     settings: Settings = Depends(get_settings),
     quota: Quota = Depends(get_quota),
+    codes: AccessCodes = Depends(get_codes),
 ) -> None:
+    """Accept the operator's code from .env, or any live trial code.
+
+    The code in .env is what switches access control on, and it stays the
+    way in when every trial code has expired — a deployment must not fall
+    open because the last one ran out.
+    """
     if not settings.access_control_enabled:
         return
     import secrets
@@ -111,8 +130,19 @@ def require_access_code(
     # which turned a header containing, say, "é" into a 500.
     supplied = x_access_code.encode("utf-8")
     expected = settings.demo_access_code.encode("utf-8")
-    if not secrets.compare_digest(supplied, expected):
-        if attempts:
+    accepted = secrets.compare_digest(supplied, expected)
+    if not accepted:
+        issued = codes.check(x_access_code)
+        if issued is not None:
+            accepted = True
+            logger.info("access code %s (%s) used from %s",
+                        issued.id, issued.label, client)
+
+    if not accepted:
+        # An absent code is not a guess — it cannot match, so charging it
+        # protects nothing, and it used to cost every new visitor one of
+        # their attempts before they had been asked for a code at all.
+        if attempts and supplied:
             try:
                 quota.hit("code-fail", client, attempts,
                           "Too many incorrect access codes from this address. "
@@ -170,6 +200,27 @@ def enforce_generation_limits(
 @app.get("/api/health")
 def health(cache: Cache = Depends(get_cache)) -> dict:
     return {"status": "ok", "cache": cache.stats()}
+
+
+@app.get("/api/access")
+def access_status(settings: Settings = Depends(get_settings)) -> dict:
+    """Whether this deployment asks for an access code.
+
+    Lets the front end ask on arrival rather than after the first refused
+    plan — and not at all in local development, where no code is set.
+    """
+    return {"required": settings.access_control_enabled}
+
+
+@app.post("/api/access/verify", dependencies=[Depends(require_access_code)])
+def verify_access() -> dict:
+    """Check a code without spending anything.
+
+    The check is the dependency itself, so a wrong code here is charged to
+    the same per-address attempt limit as on /api/plan: a separate
+    verification route must not become a way to guess for free.
+    """
+    return {"ok": True}
 
 
 @app.get("/api/destinations")

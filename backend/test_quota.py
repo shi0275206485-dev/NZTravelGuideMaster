@@ -111,6 +111,34 @@ with patch.object(main, "run_pipeline", return_value=STUB_STATE):
     statuses = [plan(c).status_code for _ in range(8)]
     check("eight in a row with limits off", statuses == [200] * 8, str(sorted(set(statuses))))
 
+    print("5b. an absent code is refused but not charged as a guess")
+    c, q = client_with(demo_access_code="kea-2026", access_code_attempts="10/hour")
+    statuses = [plan(c, "").status_code for _ in range(15)]
+    check("fifteen empty submissions are all 401, never 429",
+          statuses == [401] * 15, str(sorted(set(statuses))))
+    check("none counted against the attempt limit",
+          q.peek("code-fail", "testclient", Limit.parse("10/hour")) == 0)
+
+    print("5c. the access routes")
+    c, _ = client_with(demo_access_code="kea-2026")
+    check("/api/access reports a code is required",
+          c.get("/api/access").json() == {"required": True})
+    c2, _ = client_with(demo_access_code="")
+    check("/api/access reports none required when unset",
+          c2.get("/api/access").json() == {"required": False})
+    c, q = client_with(demo_access_code="kea-2026", access_code_attempts="3/hour",
+                       rate_limit_generate="3/hour", daily_generation_cap=30)
+    verify = lambda code: c.post("/api/access/verify", headers={"X-Access-Code": code})
+    check("verify accepts the right code", verify("kea-2026").status_code == 200)
+    check("verify spends no generation budget",
+          q.peek("plan-ip", "testclient", Limit.parse("3/hour")) == 0
+          and q.peek("plan-day", local_day(), Limit(30, 2 * 86400)) == 0)
+    wrong = [verify(f"guess-{i}").status_code for i in range(4)]
+    check("wrong codes on verify share the attempt limit",
+          wrong == [401, 401, 401, 429], str(wrong))
+    check("and the lockout then applies to /api/plan too",
+          plan(c, "kea-2026").status_code == 429)
+
     print("6. a non-ASCII access code is a 401, not a 500")
     c, _ = client_with(demo_access_code="kea-2026")
     r = c.post("/api/plan", json=REQUEST, headers={"X-Access-Code": "café".encode("latin-1")})

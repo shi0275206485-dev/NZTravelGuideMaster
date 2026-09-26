@@ -73,6 +73,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<{ status: string; cache: Record<string, number> }>("/health"),
+  /** Whether this deployment asks for a code at all. */
+  access: () => request<{ required: boolean }>("/access"),
+  /**
+   * Check a candidate code before storing it. Sent explicitly rather than
+   * from storage: until it is accepted it is not the traveller's code.
+   * Wrong codes count against the same attempt limit as planning does.
+   */
+  verifyAccess: (code: string) =>
+    request<{ ok: boolean }>("/access/verify", {
+      method: "POST",
+      headers: { "X-Access-Code": code },
+    }),
   destinations: () => request<Destination[]>("/destinations"),
   plan: (body: TripRequest) =>
     request<TripPlan>("/plan", { method: "POST", body: JSON.stringify(body) }),

@@ -63,18 +63,32 @@ EC2 → **Elastic IPs** → **Allocate** → **Associate** with the instance.
 Without this the public IP changes on every stop/start and the DNS name
 goes stale.
 
-## 4. Point a DuckDNS name at it
+## 4. Point a domain at it
 
-At <https://www.duckdns.org>, sign in, create a subdomain (e.g.
-`travelguidemaster`), and set its IP to the Elastic IP. The IP is fixed,
-so no update client is needed. Check from your machine:
+Add an **A record** for the name you will use, with the **Elastic IP** as
+its value — not the instance's current public IP, which changes on every
+stop/start.
+
+**Alibaba Cloud domain** (the one in use): Console → **Domains** → check
+the domain's status is *Normal*. A domain registered on the China site must
+pass real-name verification before it resolves at all; until then it sits
+in *serverHold* and records have no effect. No ICP filing is needed — that
+applies only to sites hosted in mainland China. Then **Alibaba Cloud DNS**
+→ the domain → **Add record**: type `A`, host `travel` (for
+`travel.<domain>`) or `@` for the bare domain, value the Elastic IP, TTL
+10 minutes.
+
+**DuckDNS** (free alternative): create a subdomain at
+<https://www.duckdns.org> and set its IP to the Elastic IP.
+
+Check from your machine:
 
 ```powershell
-nslookup travelguidemaster.duckdns.org   # must return the Elastic IP
+Resolve-DnsName travel.<domain> -Type A   # must return the Elastic IP
 ```
 
 Do not continue until it does — Caddy's first certificate request fails
-otherwise, and repeated failures are rate-limited.
+otherwise, and repeated failures are rate-limited by Let's Encrypt.
 
 ## 5. Prepare the server
 
@@ -86,7 +100,8 @@ ssh -i path\to\key.pem ubuntu@<elastic-ip>
 # Docker Engine + buildx + Compose, from Docker's own installer
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker ubuntu && newgrp docker
-docker compose version            # expect v2.x
+docker compose version            # v2 or later (Compose jumped from v2 to v5)
+docker buildx version             # needed by --build
 
 # 2 GiB of swap: the front-end build is the memory peak, and on 1 GiB it
 # can be killed partway. Harmless on larger instances.
@@ -99,7 +114,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ```bash
 git clone https://github.com/shi0275206485-dev/NZTravelGuideMaster.git
-cd NZTravelGuideMaster && git checkout dev
+cd NZTravelGuideMaster && git checkout prod
 mkdir -p backend/data          # as ubuntu (uid 1000), so the container can write it
 ```
 
@@ -138,7 +153,7 @@ The first build takes a few minutes. Ctrl-C leaves the containers running.
 ```bash
 DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
 curl -sI https://$DOMAIN | head -5           # 200, strict-transport-security present
-curl -s  https://$DOMAIN/api/health; echo    # "poi":6 — anything else, see §11
+curl -s  https://$DOMAIN/api/health; echo    # "poi":6 — anything else, see §12
 ```
 
 Then in a browser: open the site, generate a plan, enter the access code
@@ -160,7 +175,34 @@ docker compose exec api python -c "import sqlite3; print(sqlite3.connect('data/c
 The keys should be your own public IP. If they are all a `172.x` address,
 forwarding is broken and every visitor is sharing one limit.
 
-## 10. Operating it
+## 10. Handing out trial codes
+
+`DEMO_ACCESS_CODE` in `.env` is the operator's own code and the switch that
+turns access control on — keep it set, and keep it to yourself. Everyone
+else gets a code of their own, issued from the server:
+
+```bash
+cd ~/NZTravelGuideMaster/deploy
+docker compose exec api python -m app.access_codes add "LinkedIn — Jane Doe" --days 14
+```
+
+It prints the code once (only a hash is stored) along with a short id.
+Send the code; keep the id, which is what revokes it:
+
+```bash
+docker compose exec api python -m app.access_codes list
+docker compose exec api python -m app.access_codes revoke 3f9a21
+```
+
+`list` shows each code's label, status, how many times it has been used and
+when it was last used — enough to tell a code being shared around from one
+being used as intended. Codes take effect immediately; nothing restarts.
+Omit `--days` for a code that does not expire.
+
+Expired and revoked codes stay in the listing rather than disappearing, so
+it still says who was given what.
+
+## 11. Operating it
 
 | Task | Command (from `deploy/`) |
 |---|---|
@@ -175,7 +217,7 @@ cost; the Elastic IP keeps the address. AWS bills for public IPv4
 addresses and for Elastic IPs, so check current pricing and release the
 address once the course is over.
 
-## 11. When something is wrong
+## 12. When something is wrong
 
 | Symptom | Likely cause | Fix |
 |---|---|---|

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import AccessGate from "./components/AccessGate";
 import ContourField from "./components/ContourField";
 import DayCard from "./components/DayCard";
 import DayEditor from "./components/DayEditor";
@@ -9,7 +10,7 @@ import MapView from "./components/MapView";
 import PlanningProgress from "./components/PlanningProgress";
 import TripForm from "./components/TripForm";
 import TripSummary from "./components/TripSummary";
-import { ApiError, api, setAccessCode } from "./api/client";
+import { ApiError, api, getAccessCode } from "./api/client";
 import { ExportError, captureMap, exportPdf, exportPng } from "./export";
 import {
   addToHistory,
@@ -50,8 +51,11 @@ export default function App() {
   const [selected, setSelected] = useState<Destination | null>(null);
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [needsCode, setNeedsCode] = useState(false);
-  const [codeInput, setCodeInput] = useState("");
+  // "checking" until the server says whether a code is required at all.
+  // A stored code is trusted until the server refuses it; a refusal
+  // brings the gate back rather than failing the plan in place.
+  const [access, setAccess] = useState<"checking" | "locked" | "open">("checking");
+  const [gateNotice, setGateNotice] = useState<string | null>(null);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -66,9 +70,9 @@ export default function App() {
   const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .destinations()
-      .then((data) => {
+    Promise.all([api.access(), api.destinations()])
+      .then(([accessInfo, data]) => {
+        setAccess(accessInfo.required && !getAccessCode() ? "locked" : "open");
         setDestinations(data);
         setSelected(data[0] ?? null);
         setStatus({ kind: "ready" });
@@ -79,7 +83,9 @@ export default function App() {
           message:
             error instanceof ApiError
               ? error.message
-              : "Cannot reach the planner service. Is the backend running on port 8000?",
+              : import.meta.env.DEV
+                ? "Cannot reach the planner service. Is the backend running on port 8000?"
+                : "The planner service is not responding. Please try again shortly.",
         });
       });
   }, []);
@@ -100,8 +106,10 @@ export default function App() {
       setPlan(null);
       setView({ name: "form" });
       if (error instanceof ApiError && error.status === 401) {
-        setNeedsCode(true);
-        setPlanError(error.message);
+        setGateNotice(
+          "Your access code is no longer accepted. Please enter it again."
+        );
+        setAccess("locked");
       } else {
         setPlanError(
           error instanceof ApiError ? error.message : "Something went wrong."
@@ -254,7 +262,9 @@ export default function App() {
 
   // Hidden until the first plan exists: an empty sidebar on a first visit
   // is a column of nothing beside the only thing to do.
-  const showSidebar = history.length > 0;
+  const showSidebar = history.length > 0 && access === "open";
+  // Everything below the header waits for the gate.
+  const unlocked = status.kind !== "ready" || access === "open";
 
   return (
     <div className="min-h-screen">
@@ -294,6 +304,16 @@ export default function App() {
           )}
 
           <div className="min-w-0">
+        {status.kind === "ready" && access === "locked" && (
+          <AccessGate
+            notice={gateNotice}
+            onUnlocked={() => {
+              setGateNotice(null);
+              setPlanError(null);
+              setAccess("open");
+            }}
+          />
+        )}
         {status.kind === "loading" && (
           <p className="font-mono text-sm text-graphite">Loading destinations…</p>
         )}
@@ -312,7 +332,7 @@ export default function App() {
         )}
 
         {/* ---------- form ---------- */}
-        {status.kind === "ready" && view.name === "form" && (
+        {status.kind === "ready" && unlocked && view.name === "form" && (
           <DestinationBackdrop
             destinations={destinations}
             selected={selected}
@@ -325,35 +345,7 @@ export default function App() {
                 initial={formSeed}
               />
 
-              {needsCode && (
-                <div className="mt-6 rounded-sm border border-vellum bg-parchment p-4">
-                  <label className="field-label" htmlFor="access-code">
-                    Demo access code
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="access-code"
-                      className="field font-mono"
-                      value={codeInput}
-                      onChange={(e) => setCodeInput(e.target.value)}
-                      placeholder="Enter the code you were given"
-                    />
-                    <button
-                      type="button"
-                      className="rounded-sm border border-water px-4 text-sm text-water"
-                      onClick={() => {
-                        setAccessCode(codeInput);
-                        setNeedsCode(false);
-                        setPlanError(null);
-                      }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {planError && !needsCode && (
+              {planError && (
                 <p className="mt-6 rounded-sm border border-thermal/50 bg-thermal/10 px-4 py-3 text-sm text-ink">
                   {planError}
                 </p>
@@ -363,7 +355,7 @@ export default function App() {
         )}
 
         {/* ---------- planning ---------- */}
-        {view.name === "planning" && (
+        {unlocked && view.name === "planning" && (
           <PlanningProgress
             destination={view.request.destination}
             days={
@@ -377,7 +369,7 @@ export default function App() {
         )}
 
         {/* ---------- itinerary ---------- */}
-        {view.name === "itinerary" && plan && (
+        {unlocked && view.name === "itinerary" && plan && (
           <>
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
               <div>
