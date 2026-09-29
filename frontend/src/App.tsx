@@ -493,8 +493,17 @@ export default function App() {
 
       <footer className="border-t border-vellum px-6 py-6">
         <p className="mx-auto max-w-6xl font-mono text-[0.66rem] text-graphite">
-          Map data © OpenStreetMap contributors · Routing by OSRM · Costs shown
-          are estimates, not live prices
+          Map data ©{" "}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-graphite/40 underline-offset-2 hover:text-water"
+          >
+            OpenStreetMap
+          </a>{" "}
+          contributors · Routing by OSRM · Costs shown are estimates, not live
+          prices
         </p>
       </footer>
     </div>
