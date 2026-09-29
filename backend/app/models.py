@@ -60,6 +60,18 @@ LOCAL_TZ = ZoneInfo("Pacific/Auckland")
 def local_today() -> date:
     return datetime.now(LOCAL_TZ).date()
 
+
+def name_key(name: str) -> str:
+    """A place's name reduced to what a reader would call the same name.
+
+    Two stops that print identically read as a duplicate whatever their
+    ids say, so the checks that guard against repeats compare this rather
+    than the raw string. Case and whitespace only: nothing that would fold
+    two genuinely different names together.
+    """
+    return " ".join(name.split()).casefold()
+
+
 AttractionCategory = Literal[
     "nature", "culture", "geothermal", "museum", "viewpoint",
     "beach", "park", "adventure", "family", "other",

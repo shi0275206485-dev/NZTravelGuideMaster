@@ -230,10 +230,19 @@ export default function PrintableItinerary({
         </section>
       )}
 
+      {/* The licence URL is spelled out rather than linked. On screen a
+          link to openstreetmap.org/copyright satisfies the attribution
+          guidelines; on a printed or exported sheet nothing is clickable,
+          and the guidelines ask for the address itself to be printed. The
+          credit sits in the footer, which is where the guidelines expect
+          a reader to look for it. */}
       <footer className="mt-6 border-t border-vellum pt-2">
-        <p className="font-mono text-[0.6rem] text-graphite">
-          Planned with TravelGuideMaster · Map data © OpenStreetMap contributors ·
-          Routing by OSRM · Costs are estimates, not live prices
+        <p className="font-mono text-[0.6rem] leading-relaxed text-graphite">
+          Planned with TravelGuideMaster · Costs are estimates, not live prices
+        </p>
+        <p className="font-mono text-[0.6rem] leading-relaxed text-graphite">
+          Map data © OpenStreetMap contributors, available under the Open
+          Database Licence — openstreetmap.org/copyright · Routing by OSRM
         </p>
       </footer>
     </div>
