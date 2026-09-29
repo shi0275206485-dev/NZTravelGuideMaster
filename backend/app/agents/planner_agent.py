@@ -46,6 +46,7 @@ from ..models import (
     TripPlan,
     TripRequest,
     WeatherInfo,
+    name_key,
 )
 from .weather_agent import coverage, itinerary_notes
 
@@ -177,7 +178,10 @@ Rules:
   are the ONLY valid values — never "late afternoon", "midday" or anything
   else. If a day has 4 items, put two of them in the same slot.
 - Use only ids from the shortlist. Never schedule the same place twice
-  across the whole trip.
+  across the whole trip, and never schedule two ids that carry the same
+  name: some are separate branches of one business, and an itinerary that
+  lists a name twice reads as a mistake. Pick one and use a different
+  place for the other slot.
 - On days marked WET, prefer indoor places (museums, galleries, thermal
   pools) and leave exposed walks and viewpoints for the fine days.
 - Group each day by locality, using the area label on each candidate:
@@ -197,6 +201,22 @@ Rules:
   a traveller who arrives expecting an included meal pays for it twice."""
 
 
+def _first_of_each_name(attractions: list[Attraction]) -> list[Attraction]:
+    """The list with later entries repeating an earlier name removed.
+
+    Keeps the first, which preserves the significance order the ids encode.
+    """
+    seen: set[str] = set()
+    kept: list[Attraction] = []
+    for attraction in attractions:
+        key = name_key(attraction.name)
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(attraction)
+    return kept
+
+
 def _resolve_days(
     llm_plan: LLMTripPlan,
     by_id: dict[str, Attraction],
@@ -206,6 +226,7 @@ def _resolve_days(
     days: list[DayPlan] = []
     unknown_ids: list[str] = []
     used: set[str] = set()
+    used_names: set[str] = set()
 
     for day_index, llm_day in enumerate(llm_plan.days):
         items: list[ItineraryItem] = []
@@ -218,7 +239,18 @@ def _resolve_days(
                 # The schema forbids repeats, but a repeat that slipped
                 # through would read as a mistake to the traveller.
                 continue
+            # And a name already scheduled is a repeat as far as the reader
+            # is concerned, even when the ids differ. Auckland's shortlist
+            # holds two Gow Langsford Gallery branches eight kilometres
+            # apart: distinct places, but a sheet listing the name twice
+            # looks like a bug, and nothing the traveller can see tells
+            # them which is which.
+            if name_key(attraction.name) in used_names:
+                logger.info("dropping %s (%s): name already scheduled",
+                            attraction.name, attraction.id)
+                continue
             used.add(attraction.id)
+            used_names.add(name_key(attraction.name))
             items.append(ItineraryItem(
                 attraction=attraction.model_copy(update={
                     "estimated_cost": estimate_attraction_entry(attraction)
@@ -265,6 +297,10 @@ def _fallback_days(
     narrative beats no itinerary at all.
     """
     logger.warning("planner falling back to sequential day assignment")
+    # Deduplicated before the chunking, not inside it: skipping an entry
+    # mid-chunk would shorten that one day rather than pull the next place
+    # forward, and the fallback's whole job is to fill the days it can.
+    attractions = _first_of_each_name(attractions)
     per_day = max(2, min(3, len(attractions) // max(request.num_days, 1)))
     days: list[DayPlan] = []
 
@@ -363,8 +399,21 @@ def plan_trip(
 
     # Everything shortlisted but not scheduled, so the client can offer
     # swaps without another round of searching.
+    #
+    # Filtered by name as well as id, and for the same reason the itinerary
+    # is: the "add a stop" list shows a name, a category and a distance, so
+    # two entries sharing a name are two rows the traveller cannot choose
+    # between. Keeping the plan name-unique end to end means no path —
+    # model, fallback, or a manual add — can put one name on the sheet
+    # twice.
     scheduled = {item.attraction.id for day in days for item in day.items}
-    alternatives = [a for a in attractions if a.id not in scheduled]
+    scheduled_names = {
+        name_key(item.attraction.name) for day in days for item in day.items
+    }
+    alternatives = [
+        a for a in _first_of_each_name(attractions)
+        if a.id not in scheduled and name_key(a.name) not in scheduled_names
+    ]
 
     return TripPlan(
         destination=request.destination,

@@ -17,11 +17,23 @@ from functools import lru_cache
 
 from .cache import Cache
 from .config import get_settings
-from .models import Attraction, Hotel
+from .geo import haversine_km
+from .models import Attraction, Hotel, name_key
 
 logger = logging.getLogger(__name__)
 
 POI_NAMESPACE = "poi"
+
+# Two cache entries with the same name this close together are one place
+# recorded twice in OpenStreetMap, not two places worth visiting on
+# separate afternoons. The distance is chosen from the cases in the data:
+# Rotorua holds Paradise Valley Springs twice 80 m apart and Agrodome
+# twice 430 m apart — one site with several tagged features, and the
+# refined categories differ, so neither the id nor the category check saw
+# them. Auckland's two Gow Langsford Galleries are 8.3 km apart and are
+# genuinely different branches, which is why this is a radius and not a
+# name match.
+SAME_PLACE_KM = 0.5
 
 
 class PoiUnavailableError(RuntimeError):
@@ -65,7 +77,34 @@ def load_attractions(destination: str) -> list[Attraction]:
         except Exception as exc:
             # One malformed cache entry should not sink the whole request.
             logger.warning("skipping malformed attraction in cache: %s", exc)
-    return attractions
+    return _merge_same_place(attractions, destination)
+
+
+def _merge_same_place(attractions: list[Attraction], destination: str) -> list[Attraction]:
+    """Drop entries that repeat a place already in the list.
+
+    Applied on load rather than at pre-fetch so a cache already copied to
+    a server is corrected without re-running the Overpass capture; the
+    pre-fetch script is the better long-term home for it.
+
+    The first of a pair is kept, which keeps the significance ranking the
+    ids encode: A09 survives, A11 goes.
+    """
+    kept: list[Attraction] = []
+    for candidate in attractions:
+        name = name_key(candidate.name)
+        twin = next(
+            (k for k in kept
+             if name_key(k.name) == name
+             and haversine_km(k.location, candidate.location) <= SAME_PLACE_KM),
+            None,
+        )
+        if twin is not None:
+            logger.info("%s: %s (%s) repeats %s; dropping the later entry",
+                        destination, candidate.name, candidate.id, twin.id)
+            continue
+        kept.append(candidate)
+    return kept
 
 
 def load_hotels(destination: str) -> list[Hotel]:
