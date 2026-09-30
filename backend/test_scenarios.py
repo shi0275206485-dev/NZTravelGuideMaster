@@ -14,7 +14,7 @@ Usage:
 import argparse
 from datetime import date, timedelta
 
-from backend.app.agents.attraction_agent_v1 import search_attractions
+from backend.app.agents.attraction_agent import search_attractions
 from app.models import TripRequest
 
 START = date.today() + timedelta(days=14)
